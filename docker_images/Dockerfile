@@ -132,7 +132,6 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
 # ML/CV libraries
 # ------------------------------------------------------------------
 
-    pip install git+https://github.com/argoai/argoverse-api.git && \
     pip install dgl-cu111 -f https://data.dgl.ai/wheels/repo.html && \
     pip install av2==0.2.1 && \
     pip install mpi4py==3.1.4 && \
