@@ -147,8 +147,6 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         captum==0.6.0 \
         && \
 
-    HOROVOD_GPU_OPERATIONS=NCCL pip install horovod==0.19.4 && \
-
     pip install lanelet2 && \
 
 # ==================================================================
