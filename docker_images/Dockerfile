@@ -143,7 +143,6 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         && \
     $PIP_INSTALL \
         skorch==0.12.1 \
-        pytorch-lightning==1.8.6 \
         captum==0.6.0 \
         && \
 

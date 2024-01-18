@@ -1,38 +1,37 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.autograd import Variable
-from torch.distributions import kl_divergence
-import numpy as np 
+import numpy as np
 import random
-import horovod.torch as hvd 
-import sys, os, math
+import sys, math
 import matplotlib.pyplot as plt
 from scipy import sparse
+
 
 def accumulate_gradients(grads, named_parameters):
     if grads == {}:
         for n, p in named_parameters:
-            if(p.requires_grad) and ("bias" not in n):
+            if (p.requires_grad) and ("bias" not in n):
                 grads[n] = p.grad.abs().mean()
     else:
         for n, p in named_parameters:
-            if(p.requires_grad) and ("bias" not in n):
+            if (p.requires_grad) and ("bias" not in n):
                 grads[n] += p.grad.abs().mean()
-    
+
     return grads
 
+
 def plot_grad_flow(grads, epoch, log_path):
-    path = log_path / 'gradients_{}.png'.format(epoch)
-    plt.rc('xtick', labelsize=4)
+    path = log_path / "gradients_{}.png".format(epoch)
+    plt.rc("xtick", labelsize=4)
     plt.figure(figsize=(20, 20), dpi=200)
 
     to_plot = list(grads.values())
     to_plot = [x.detach().cpu() for x in to_plot]
-    
+
     plt.plot(to_plot, alpha=0.3, color="b")
-    plt.hlines(0, 0, len(grads)+1, linewidth=1, color="k" )
-    plt.xticks(range(0,len(grads), 1), list(grads.keys()), rotation="vertical")
+    plt.hlines(0, 0, len(grads) + 1, linewidth=1, color="k")
+    plt.xticks(range(0, len(grads), 1), list(grads.keys()), rotation="vertical")
     plt.xlim(xmin=0, xmax=len(grads))
     plt.xlabel("Layers")
     plt.ylabel("Average Gradient")
@@ -40,6 +39,7 @@ def plot_grad_flow(grads, epoch, log_path):
     plt.grid(True)
     plt.savefig(path)
     print("Plotted gradient flow")
+
 
 def set_seeds(seed):
     torch.manual_seed(seed)
@@ -52,9 +52,10 @@ def set_seeds(seed):
     g = torch.Generator()
     g.manual_seed(seed)
 
+
 def sync3(data, comm):
     data_list = comm.allgather(data)
-    
+
     final_grads = {}
     for i in range(len(data_list)):
         if i == 0:
@@ -63,15 +64,16 @@ def sync3(data, comm):
         else:
             for key in data_list[i].keys():
                 final_grads[key] += data_list[i][key]
-    
+
     for key in final_grads.keys():
         final_grads[key] /= len(data_list)
-    
+
     return final_grads
+
 
 def sync(data, config, comm):
     data_list = comm.allgather(data)
-    
+
     FDE = 0
     ADE = 0
     SCR = 0
@@ -81,15 +83,15 @@ def sync(data, config, comm):
     pADE = 0
     n_scenarios = 0
     for i in range(len(data_list)):
-        FDE += data_list[i]['FDE'] * data_list[i]['n_scenarios']
-        ADE += data_list[i]['ADE'] * data_list[i]['n_scenarios']
-        SCR += data_list[i]['SCR'] * data_list[i]['n_scenarios']
-        SMR += data_list[i]['SMR'] * data_list[i]['n_scenarios']
-        SMR_AV2 += data_list[i]['SMR_AV2'] * data_list[i]['n_scenarios']
-        pFDE += data_list[i]['pFDE'] * data_list[i]['n_scenarios']
-        pADE += data_list[i]['pADE'] * data_list[i]['n_scenarios']
-        n_scenarios += data_list[i]['n_scenarios']
-    
+        FDE += data_list[i]["FDE"] * data_list[i]["n_scenarios"]
+        ADE += data_list[i]["ADE"] * data_list[i]["n_scenarios"]
+        SCR += data_list[i]["SCR"] * data_list[i]["n_scenarios"]
+        SMR += data_list[i]["SMR"] * data_list[i]["n_scenarios"]
+        SMR_AV2 += data_list[i]["SMR_AV2"] * data_list[i]["n_scenarios"]
+        pFDE += data_list[i]["pFDE"] * data_list[i]["n_scenarios"]
+        pADE += data_list[i]["pADE"] * data_list[i]["n_scenarios"]
+        n_scenarios += data_list[i]["n_scenarios"]
+
     FDE /= n_scenarios
     ADE /= n_scenarios
     SCR /= n_scenarios
@@ -98,7 +100,7 @@ def sync(data, config, comm):
     pFDE /= n_scenarios
     pADE /= n_scenarios
 
-    if config['learned_relation_header']:
+    if config["learned_relation_header"]:
         n_gpus = 0
         edge_acc = 0
         edge_acc_0 = 0
@@ -107,36 +109,37 @@ def sync(data, config, comm):
         proportion_no_edge = 0
         for i in range(len(data_list)):
             n_gpus += 1
-            edge_acc += data_list[i]['Edge Accuracy']
-            edge_acc_0 += data_list[i]['Edge Accuracy 0']
-            edge_acc_1 += data_list[i]['Edge Accuracy 1']
-            edge_acc_2 += data_list[i]['Edge Accuracy 2']
-            proportion_no_edge += data_list[i]['Proportion No Edge']
-        
+            edge_acc += data_list[i]["Edge Accuracy"]
+            edge_acc_0 += data_list[i]["Edge Accuracy 0"]
+            edge_acc_1 += data_list[i]["Edge Accuracy 1"]
+            edge_acc_2 += data_list[i]["Edge Accuracy 2"]
+            proportion_no_edge += data_list[i]["Proportion No Edge"]
+
         edge_acc /= n_gpus
         edge_acc_0 /= n_gpus
         edge_acc_1 /= n_gpus
         edge_acc_2 /= n_gpus
         proportion_no_edge /= n_gpus
-    
+
     return_dict = {
-        'FDE': FDE,
-        'ADE': ADE,
-        'pFDE': pFDE,
-        'pADE': pADE,
-        'SCR': SCR,
-        'SMR': SMR,
-        'SMR_AV2': SMR_AV2
+        "FDE": FDE,
+        "ADE": ADE,
+        "pFDE": pFDE,
+        "pADE": pADE,
+        "SCR": SCR,
+        "SMR": SMR,
+        "SMR_AV2": SMR_AV2,
     }
 
     if config["learned_relation_header"]:
-        return_dict['E-Acc'] = edge_acc
-        return_dict['E-Acc 0'] = edge_acc_0 
-        return_dict['E-Acc 1'] = edge_acc_1 
-        return_dict['E-Acc 2'] = edge_acc_2 
-        return_dict['PropNoEdge'] = proportion_no_edge
-    
+        return_dict["E-Acc"] = edge_acc
+        return_dict["E-Acc 0"] = edge_acc_0
+        return_dict["E-Acc 1"] = edge_acc_1
+        return_dict["E-Acc 2"] = edge_acc_2
+        return_dict["PropNoEdge"] = proportion_no_edge
+
     return return_dict
+
 
 class Logger(object):
     def __init__(self, log):
@@ -150,6 +153,7 @@ class Logger(object):
 
     def flush(self):
         pass
+
 
 ### FROM LANE_GCN
 def graph_gather(graphs, config):
@@ -191,13 +195,14 @@ def graph_gather(graphs, config):
                 for x in temp
             ]
             graph[k1][k2] = torch.cat(temp)
-    
+
     return graph
+
 
 ### FROM LANE_GCN
 def dilated_nbrs(nbr, num_nodes, num_scales):
-    data = np.ones(len(nbr['u']), bool)
-    csr = sparse.csr_matrix((data, (nbr['u'], nbr['v'])), shape=(num_nodes, num_nodes))
+    data = np.ones(len(nbr["u"]), bool)
+    csr = sparse.csr_matrix((data, (nbr["u"], nbr["v"])), shape=(num_nodes, num_nodes))
 
     mat = csr
     nbrs = []
@@ -206,10 +211,11 @@ def dilated_nbrs(nbr, num_nodes, num_scales):
 
         nbr = dict()
         coo = mat.tocoo()
-        nbr['u'] = coo.row.astype(np.int64)
-        nbr['v'] = coo.col.astype(np.int64)
+        nbr["u"] = coo.row.astype(np.int64)
+        nbr["v"] = coo.col.astype(np.int64)
         nbrs.append(nbr)
     return nbrs
+
 
 ### FROM LANE_GCN
 def ref_copy(data):
@@ -222,10 +228,10 @@ def ref_copy(data):
         return d
     return data
 
+
 ### FROM LANE_GCN
 def from_numpy(data):
-    """Recursively transform numpy.ndarray to torch.Tensor.
-    """
+    """Recursively transform numpy.ndarray to torch.Tensor."""
     if isinstance(data, dict):
         for key in data.keys():
             data[key] = from_numpy(data[key])
@@ -235,6 +241,7 @@ def from_numpy(data):
         """Pytorch now has bool type."""
         data = torch.from_numpy(data)
     return data
+
 
 ### FROM LANE_GCN
 def cat(batch):
@@ -252,6 +259,7 @@ def cat(batch):
         return_batch = batch
     return return_batch
 
+
 ### FROM LANE_GCN
 def collate_fn(batch):
     batch = from_numpy(batch)
@@ -260,6 +268,7 @@ def collate_fn(batch):
     for key in batch[0].keys():
         return_batch[key] = [x[key] for x in batch]
     return return_batch
+
 
 ### FROM LANE_GCN
 def gpu(data):
@@ -270,10 +279,11 @@ def gpu(data):
     if isinstance(data, list) or isinstance(data, tuple):
         data = [gpu(x) for x in data]
     elif isinstance(data, dict):
-        data = {key:gpu(_data) for key,_data in data.items()}
+        data = {key: gpu(_data) for key, _data in data.items()}
     elif isinstance(data, torch.Tensor):
         data = data.contiguous().cuda(non_blocking=True)
     return data
+
 
 ### FROM LANE_GCN
 def to_long(data):
@@ -286,15 +296,17 @@ def to_long(data):
         data = data.long()
     return data
 
+
 def print_(*args):
-    if hvd.rank() == 0:
-        print(*args)
+    print(*args)
+
 
 def worker_init_fn(pid):
-    np_seed = hvd.rank() * 1024 + int(pid)
+    np_seed = 1024 + int(pid)
     np.random.seed(np_seed)
-    random_seed = np.random.randint(2 ** 32 - 1)
+    random_seed = np.random.randint(2**32 - 1)
     random.seed(random_seed)
+
 
 ### FROM NRI
 def my_softmax(input, axis=1):
@@ -302,13 +314,14 @@ def my_softmax(input, axis=1):
     soft_max_1d = F.softmax(trans_input, dim=0)
     return soft_max_1d.transpose(axis, 0)
 
+
 ### FROM CONTRASTIVE FUTURE TRAJECTORY PREDICTION
 def estimate_constant_velocity(history, prediction_horizon, has_obs):
     history = history[has_obs == 1]
     length_history = history.shape[0]
-    z_x = history[:, 0] # these are the observations x
-    z_y = history[:, 1] # these are the observations y
-    
+    z_x = history[:, 0]  # these are the observations x
+    z_y = history[:, 1]  # these are the observations y
+
     if length_history == 1:
         v_x = 0
         v_y = 0
@@ -318,40 +331,41 @@ def estimate_constant_velocity(history, prediction_horizon, has_obs):
         for index in range(length_history - 1):
             v_x += z_x[index + 1] - z_x[index]
             v_y += z_y[index + 1] - z_y[index]
-        v_x = v_x / (length_history - 1) # v_x is the average velocity x
-        v_y = v_y / (length_history - 1) # v_y is the average velocity y
-    
-    x_pred = z_x[-1] + v_x * prediction_horizon 
-    y_pred = z_y[-1] + v_y * prediction_horizon 
+        v_x = v_x / (length_history - 1)  # v_x is the average velocity x
+        v_y = v_y / (length_history - 1)  # v_y is the average velocity y
+
+    x_pred = z_x[-1] + v_x * prediction_horizon
+    y_pred = z_y[-1] + v_y * prediction_horizon
 
     return x_pred, y_pred
+
 
 def evaluate_fde(x_pred, y_pred, x, y):
     return math.sqrt((x_pred - x) ** 2 + (y_pred - y) ** 2)
 
+
 class FocalLoss(nn.Module):
-    
-    def __init__(self, weight=None, 
-                 gamma=2., reduction='none'):
+    def __init__(self, weight=None, gamma=2.0, reduction="none"):
         nn.Module.__init__(self)
         self.weight = weight
         self.gamma = gamma
         self.reduction = reduction
-        
+
     def forward(self, input_tensor, target_tensor):
         log_prob = F.log_softmax(input_tensor, dim=-1)
         prob = torch.exp(log_prob)
         return F.nll_loss(
-            ((1 - prob) ** self.gamma) * log_prob, 
-            target_tensor, 
+            ((1 - prob) ** self.gamma) * log_prob,
+            target_tensor,
             weight=self.weight,
-            reduction = self.reduction
+            reduction=self.reduction,
         )
+
 
 def sign_func(x):
     if x > 0:
-        return 1.
+        return 1.0
     elif x < 0:
-        return -1.
+        return -1.0
     else:
-        return 0.
+        return 0.0

@@ -1,1 +1,10 @@
+#Atlas slurm sessions
 atlas_sessions/
+
+#Datasets
+dataset_INTERACTION/*
+dataset_INTERACTION/*.csv
+
+#pyc
+__pycache__/
+*.pyc

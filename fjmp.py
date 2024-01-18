@@ -552,7 +552,7 @@ class FJMP(torch.nn.Module):
                 optimizer.step()
 
                 if i % 100 == 0:
-                    print_(
+                    print(
                         "Training data: ",
                         "{:.2f}%".format(i * 100 / tot_log),
                         "lr={:.3e}".format(cur_lr),
@@ -610,7 +610,7 @@ class FJMP(torch.nn.Module):
 
             if self.eval_training:
                 self.eval()
-                print_("Calculating training metrics...")
+                print("Calculating training metrics...")
 
                 has_last_mask = np.concatenate(has_last_all, axis=0).astype(bool)
                 if self.dataset == "interaction":
@@ -650,7 +650,7 @@ class FJMP(torch.nn.Module):
                 )
                 eval_results = sync(eval_results, self.config, comm)
 
-                print_(
+                print(
                     "Epoch {} training-set results: ".format(epoch),
                     "\t".join(
                         [
@@ -665,10 +665,10 @@ class FJMP(torch.nn.Module):
                 if (not self.two_stage_training) or (
                     self.two_stage_training and self.training_stage == 2
                 ):
-                    print_("Saving model")
+                    print("Saving model")
                     self.save(epoch, optimizer, val_best, ade_best, fde_best)
                 else:
-                    print_("Saving relation header")
+                    print("Saving relation header")
                     self.save_relation_header(epoch, optimizer, val_edge_acc_best)
 
             else:
@@ -676,7 +676,7 @@ class FJMP(torch.nn.Module):
 
                 val_eval_results = self._eval(val_loader, epoch)
 
-                print_(
+                print(
                     "Epoch {} validation-set results: ".format(epoch),
                     "\t".join(
                         [
@@ -695,8 +695,8 @@ class FJMP(torch.nn.Module):
                         ade_best = val_eval_results["ADE"]
                         fde_best = val_eval_results["FDE"]
                         self.save(epoch, optimizer, val_best, ade_best, fde_best)
-                        print_("Validation FDE+ADE improved. Saving model. ")
-                    print_(
+                        print("Validation FDE+ADE improved. Saving model. ")
+                    print(
                         "Best loss: {:.4f}".format(val_best),
                         "Best ADE: {:.3f}".format(ade_best),
                         "Best FDE: {:.3f}".format(fde_best),
@@ -704,12 +704,12 @@ class FJMP(torch.nn.Module):
 
                 else:
                     if val_eval_results["E-Acc"] > val_edge_acc_best:
-                        print_("Validation Edge Accuracy improved.")
+                        print("Validation Edge Accuracy improved.")
                         val_edge_acc_best = val_eval_results["E-Acc"]
 
-                    print_("Saving relation header")
+                    print("Saving relation header")
                     self.save_relation_header(epoch, optimizer, val_edge_acc_best)
-                    print_(
+                    print(
                         "Best validation edge accuracy: {:.4f}".format(
                             val_edge_acc_best
                         )
@@ -723,7 +723,7 @@ class FJMP(torch.nn.Module):
                         epoch, optimizer, val_best, ade_best, fde_best
                     )
 
-            print_("Epoch {} time: {:.3f}s".format(epoch, time.time() - t_start_epoch))
+            print("Epoch {} time: {:.3f}s".format(epoch, time.time() - t_start_epoch))
 
     def _eval(self, val_loader, epoch):
         self.eval()
@@ -820,7 +820,7 @@ class FJMP(torch.nn.Module):
                 )
 
                 if i % 50 == 0:
-                    print_(
+                    print(
                         "Validation data: ",
                         "{:.2f}%".format(i * 100 / tot_log),
                         "\t".join(
@@ -868,7 +868,7 @@ class FJMP(torch.nn.Module):
                 )
                 tot += dd["batch_size"]
 
-        print_("Calculating validation metrics...")
+        print("Calculating validation metrics...")
 
         has_last_mask = np.concatenate(has_last_all, axis=0).astype(bool)
         if self.dataset == "interaction":
@@ -1487,7 +1487,7 @@ class FJMP(torch.nn.Module):
                     fde.append(evaluate_fde(final_x, final_y, gt_final_x, gt_final_y))
 
                 if i % 10 == 0:
-                    print_("Validation data: ", "{:.2f}%".format(i * 100 / tot_log))
+                    print("Validation data: ", "{:.2f}%".format(i * 100 / tot_log))
 
         fde = np.array(fde)
 
@@ -1676,12 +1676,12 @@ if __name__ == "__main__":
     if args.mode == "train":
         model = FJMP(config)
         m = sum(p.numel() for p in model.parameters())
-        print_("Command line arguments:")
+        print("Command line arguments:")
         for it in sys.argv:
-            print_(it)
+            print(it)
 
-        print_("Model: {} parameters".format(m))
-        print_("Training model...")
+        print("Model: {} parameters".format(m))
+        print("Training model...")
 
         # save stage 1 config
         if model.two_stage_training and model.training_stage == 1:
@@ -1743,8 +1743,8 @@ if __name__ == "__main__":
     elif args.mode == "eval":
         model = FJMP(config)
         m = sum(p.numel() for p in model.parameters())
-        print_("Model: {} parameters".format(m))
-        print_("Evaluating model...")
+        print("Model: {} parameters".format(m))
+        print("Evaluating model...")
 
         # load model from stage 1 and freeze weights
         if model.two_stage_training and model.training_stage == 2:
@@ -1762,7 +1762,7 @@ if __name__ == "__main__":
             model.load_for_eval()
         # evaluate model
         results = model._eval(val_loader, 1)
-        print_(
+        print(
             "Model Results: ",
             "\t".join(
                 [
@@ -1776,7 +1776,7 @@ if __name__ == "__main__":
     elif args.mode == "eval_constant_velocity":
         model = FJMP(config)
         m = sum(p.numel() for p in model.parameters())
-        print_(
+        print(
             "Evaluating interactive agents on validation set with constant velocity model..."
         )
         model._eval_constant_velocity(val_loader, config["max_epochs"])
