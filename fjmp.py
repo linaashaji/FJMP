@@ -1,14 +1,11 @@
 import numpy as np
 import torch
-from torch.utils.data import Sampler, DataLoader
+from torch.utils.data import DataLoader
 import dgl
-import matplotlib.pyplot as plt
 
 import pickle
-from tqdm import tqdm
 import argparse
 import os, sys, time
-import random
 from pathlib import Path
 
 from fjmp_dataloader_interaction import InteractionDataset
